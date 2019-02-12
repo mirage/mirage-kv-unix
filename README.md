@@ -1,12 +1,9 @@
-mirage-fs-unix -- passthrough filesystem for MirageOS on Unix
--------------------------------------------------------------
+## mirage-kv-unix -- key-value store for MirageOS backed by Unix filesystem
 
-This is a pass-through Mirage filesystem to an underlying Unix directory.  The
-interface is intended to support eventual privilege separation (e.g. via the
-Casper daemon in FreeBSD 11).
+This is a Mirage key-value store backed by an underlying Unix directory.
 
-The current version supports the `Mirage_fs.S` and `Mirage_fs_lwt.S` signatures
-defined in the `mirage-fs` package.
+The current version supports the `Mirage_kv.S` and `Mirage_kv_lwt.S` signatures
+defined in the `mirage-kv` package.
 
 * WWW: <https://mirage.io>
 * E-mail: <mirageos-devel@lists.xenproject.org>

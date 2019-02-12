@@ -1,12 +1,12 @@
 (executables
- (names test_fs_unix)
+ (names test_kv_unix)
  (libraries unix ptime mirage-clock-unix alcotest rresult mirage-kv-lwt
-   mirage-fs-unix))
+   mirage-kv-unix))
 
 (alias
  (name runtest)
  (deps
-  (:< test_fs_unix.exe)
+  (:< test_kv_unix.exe)
   (source_tree test_directory))
  (action
   (run %{<})))

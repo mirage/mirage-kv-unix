@@ -1,2 +1,2 @@
 (lang dune 1.0)
-(name mirage-fs-unix)
+(name mirage-kv-unix)
