@@ -135,22 +135,22 @@ let open_file t key flags =
         | Unix.Unix_error (e, _, _) -> Lwt.return (Error (`Storage_error (key, Unix.error_message e)))
         | e -> Lwt.fail e)
 
-let file_or_directory {base} path0 =
-  let path = resolve_filename base (Mirage_kv.Key.to_string path0) in
+let file_or_directory {base} key =
+  let path = resolve_filename base (Mirage_kv.Key.to_string key) in
   Lwt_unix.LargeFile.stat path >|= fun stat ->
   match stat.Lwt_unix.LargeFile.st_kind with
   | Lwt_unix.S_DIR -> Ok `Dictionary
   | Lwt_unix.S_REG -> Ok `Value
-  | _ -> Error (`Storage_error (path0, "not a regular file"))
+  | _ -> Error (`Storage_error (key, "not a regular file"))
 
 (* TODO test this *)
-let exists t path0 =
-  Lwt.catch (fun () -> file_or_directory t path0 >|= function
+let exists t key =
+  Lwt.catch (fun () -> file_or_directory t key >|= function
     | Error e -> Error e
     | Ok x -> Ok (Some x))
     (function
       | Unix.Unix_error (Unix.ENOENT, _, _) -> Lwt.return (Ok None)
-      | Unix.Unix_error (e, _, _) -> Lwt.return (Error (`Storage_error (path0, Unix.error_message e)))
+      | Unix.Unix_error (e, _, _) -> Lwt.return (Error (`Storage_error (key, Unix.error_message e)))
       | e -> Lwt.fail e)
 
 let last_modified {base} key =
@@ -165,10 +165,6 @@ let last_modified {base} key =
     (function
       | Unix.Unix_error (e, _, _) -> Lwt.return (Error (`Storage_error (key, Unix.error_message e)))
       | e -> Lwt.fail e)
-
-let batch _ ?retries:_ret _ = assert false
-
-let digest _ _ = assert false
 
 let connect id =
   try if Sys.is_directory id then
@@ -194,6 +190,27 @@ let list t key =
     (function
       | Unix.Unix_error (Unix.ENOENT, _, _) -> Lwt.return (Error (`Not_found key))
       | Unix.Unix_error (Unix.ENOTDIR, _, _) -> Lwt.return (Error (`Dictionary_expected key))
+      | Unix.Unix_error (e, _, _) -> Lwt.return (Error (`Storage_error (key, Unix.error_message e)))
+      | e -> Lwt.fail e)
+
+let batch t ?retries:_ret f = f t
+
+let digest t key = 
+  let path = resolve_filename t.base (Mirage_kv.Key.to_string key) in
+  Lwt.catch (fun () -> file_or_directory t key >>= function
+    | Error e -> Lwt.return @@ Error e
+    | Ok `Value -> Lwt.return @@ Ok (Digest.file path)
+    | Ok `Dictionary -> list t key >|= function
+      | Error e -> Error e
+      | Ok entries -> 
+        let kind_to_str = function
+        | `Value -> "value"
+        | `Dictionary -> "dictionary" 
+        in
+        let string_entries = List.map (fun (name, kind) -> name ^ kind_to_str kind) entries in
+        Ok (Digest.string @@ String.concat "\n" string_entries))
+    (function
+      | Unix.Unix_error (Unix.ENOENT, _, _) -> Lwt.return (Error (`Not_found key))
       | Unix.Unix_error (e, _, _) -> Lwt.return (Error (`Storage_error (key, Unix.error_message e)))
       | e -> Lwt.fail e)
 
