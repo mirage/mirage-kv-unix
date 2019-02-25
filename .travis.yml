@@ -10,7 +10,6 @@ env:
    - PACKAGE="mirage-kv-unix"
    - TESTS="true"
  matrix:
-   - DISTRO=alpine OCAML_VERSION=4.04
    - DISTRO=alpine OCAML_VERSION=4.05
    - DISTRO=alpine OCAML_VERSION=4.06
    - DISTRO=alpine OCAML_VERSION=4.07
