@@ -1,7 +1,7 @@
 (executables
  (names test_kv_unix)
- (libraries unix ptime mirage-clock-unix alcotest rresult mirage-kv-lwt
-   mirage-kv-unix))
+ (libraries unix ptime mirage-clock-unix alcotest rresult mirage-kv
+   mirage-kv-unix cstruct))
 
 (alias
  (name runtest)

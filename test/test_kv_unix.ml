@@ -35,10 +35,8 @@ let assert_write_fail e = failf "%a" KV.pp_write_error e
 let connect_present_dir () =
   KV.connect test_kv >>= fun _kv -> Lwt.return_unit
 
-let clock = lwt_run (fun () -> Pclock.connect ()) ()
-
 let append_timestamp s =
-  let now = Ptime.v (Pclock.now_d_ps clock) in
+  let now = Ptime.v (Pclock.now_d_ps ()) in
   let str = Fmt.strf "%s-%a" s (Ptime.pp_rfc3339 ~space:false ()) now in
   Mirage_kv.Key.v str
 
