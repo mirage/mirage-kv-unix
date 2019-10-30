@@ -18,10 +18,7 @@
 
 open Lwt.Infix
 
-type +'a io = 'a Lwt.t
-
 type key = Mirage_kv.Key.t
-type value = string
 
 type t = {
   base: string
