@@ -1,3 +1,7 @@
+## v2.1.0 (2019-10-30)
+
+* adapt to mirage-kv 3.0.0 interface (#2 @hannesm)
+
 ## v2.0.0 (2019-02-25)
 
 * renamed to mirage-kv-unix
