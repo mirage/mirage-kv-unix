@@ -7,6 +7,7 @@ dev-repo:     "git+https://github.com/mirage/mirage-kv-unix.git"
 bug-reports:  "https://github.com/mirage/mirage-kv-unix/issues"
 doc:          "https://mirage.github.io/mirage-kv-unix/"
 tags:         [ "org:mirage" ]
+license:      "ISC"
 build: [
   ["dune" "subst" ] {pinned}
   ["dune" "build" "-p" name "-j" jobs]

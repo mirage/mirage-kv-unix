@@ -31,14 +31,14 @@ let pp_error ppf = function
   | `Storage_error (key, msg) -> Fmt.pf ppf "storage error for %a: %s"
                                    Mirage_kv.Key.pp key msg
 
-type write_error = [ Mirage_kv.write_error | `Storage_error of Mirage_kv.Key.t * string | `Key_exists of Mirage_kv.Key.t ]
+ type write_error = [ Mirage_kv.write_error | `Storage_error of Mirage_kv.Key.t * string | `Key_exists of Mirage_kv.Key.t ]
 
 let pp_write_error ppf = function
   | #Mirage_kv.write_error as err -> Mirage_kv.pp_write_error ppf err
   | `Key_exists key -> Fmt.pf ppf "key %a already exists and is a dictionary" Mirage_kv.Key.pp key
   | `Storage_error (key, msg) -> Fmt.pf ppf "storage error for %a: %s"
                                    Mirage_kv.Key.pp key msg
- 
+
 let split_string delimiter name =
   let len = String.length name in
   let rec doit off acc =
@@ -192,17 +192,17 @@ let list t key =
 
 let batch t ?retries:_ret f = f t
 
-let digest t key = 
+let digest t key =
   let path = resolve_filename t.base (Mirage_kv.Key.to_string key) in
   Lwt.catch (fun () -> file_or_directory t key >>= function
     | Error e -> Lwt.return @@ Error e
     | Ok `Value -> Lwt.return @@ Ok (Digest.file path)
     | Ok `Dictionary -> list t key >|= function
       | Error e -> Error e
-      | Ok entries -> 
+      | Ok entries ->
         let kind_to_str = function
         | `Value -> "value"
-        | `Dictionary -> "dictionary" 
+        | `Dictionary -> "dictionary"
         in
         let string_entries = List.map (fun (name, kind) -> name ^ kind_to_str kind) entries in
         Ok (Digest.string @@ String.concat "\n" string_entries))
@@ -229,8 +229,8 @@ let rec remove t key =
               | Ok () -> remove t (Mirage_kv.Key.add key name))
             (Ok ()) files >>= function
           | Error e -> Lwt.return (Error e)
-          | Ok () -> 
-             if not Mirage_kv.Key.(equal empty key) 
+          | Ok () ->
+             if not Mirage_kv.Key.(equal empty key)
              then Lwt_unix.rmdir path >|= fun () -> Ok ()
              else Lwt.return (Ok ()))
     (function
@@ -241,7 +241,7 @@ let rec remove t key =
 let set t key value =
   exists t key >>= function
   | Ok (Some `Dictionary) -> Lwt.return (Error (`Key_exists key))
-  | _ -> 
+  | _ ->
     remove t key >>= function
     | Error (`Dictionary_expected e) -> Lwt.return (Error (`Dictionary_expected e))
     | Error (`Storage_error e) -> Lwt.return (Error (`Storage_error e))
