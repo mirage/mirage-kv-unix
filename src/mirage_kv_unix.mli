@@ -20,10 +20,13 @@
 [@@@ocaml.warning "-34"]
 
 type error = [ Mirage_kv.error | `Storage_error of Mirage_kv.Key.t * string ]
-type write_error = [ Mirage_kv.write_error | `Storage_error of Mirage_kv.Key.t * string | `Key_exists of Mirage_kv.Key.t ]
 
-include Mirage_kv.RW
-  with type error := error
-   and type write_error := write_error
+type write_error =
+  [ Mirage_kv.write_error
+  | `Storage_error of Mirage_kv.Key.t * string
+  | `Key_exists of Mirage_kv.Key.t ]
+
+include
+  Mirage_kv.RW with type error := error and type write_error := write_error
 
 val connect : string -> t Lwt.t
