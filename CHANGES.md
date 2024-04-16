@@ -1,3 +1,7 @@
+## v3.0.0 (2024-04-16)
+
+* Update to mirage-kv>6 (#5, @samoht)
+
 ## v2.1.0 (2019-10-30)
 
 * adapt to mirage-kv 3.0.0 interface (#2 @hannesm)
