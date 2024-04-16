@@ -1,10 +1,17 @@
 (executables
+ (modes byte exe)
  (names test_kv_unix)
- (libraries unix ptime mirage-clock-unix alcotest rresult mirage-kv
-   mirage-kv-unix cstruct))
+ (libraries
+  unix
+  ptime
+  mirage-clock-unix
+  alcotest
+  mirage-kv
+  mirage-kv-unix
+  cstruct))
 
-(alias
- (name runtest)
+(rule
+ (alias runtest)
  (deps
   (:< test_kv_unix.exe)
   (source_tree test_directory))
