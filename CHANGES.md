@@ -4,8 +4,8 @@
   - Fail when keys contain '.' and '..' to match other `mirage-kv-*`
     implementations
   - Use failwith instead of Lwt.failwith
-  - Use Lwt.reraise instead of Lwt.fail
-  - `digest` on directories now return an error
+  - Use Lwt.reraise instead of Lwt.fail (requires lwt>=5.7)
+  - `digest` on directories now return an error (requires mirage-kv>=6.1.1)
   - `set_partial` on directories return an error while `set` on directories work
     (and remove the directory)
   - fix fd leak in `set` and `set_partial`
