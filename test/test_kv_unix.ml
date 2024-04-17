@@ -201,12 +201,7 @@ let write_overwrite_dir () =
   let subdir = Mirage_kv.Key.(dirname / "data") in
   let* () = set kv subdir "noooooo" in
   let+ w = KV.set kv dirname "noooooo" in
-  match w with
-  | Error (`Key_exists _) -> ()
-  | Error e -> assert_write_fail e
-  | Ok () ->
-      Alcotest.failf
-        "write overwrote an entire directory! That should not happen!"
+  match w with Ok () -> () | Error e -> assert_write_fail e
 
 let write_big_file () =
   let how_big = 4100 in

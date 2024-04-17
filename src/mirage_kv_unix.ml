@@ -43,7 +43,6 @@ let err_mtime key = storage_error key "mtime parsing failed"
 let err_not_found key = Error (`Not_found key)
 let err_dict_expected key = Error (`Dictionary_expected key)
 let err_no_space = Error `No_space
-let err_key_exists key = Error (`Key_exists key)
 let err_value_expected key = Error (`Value_expected key)
 
 let pp_error ppf = function
@@ -75,22 +74,17 @@ let split_string delimiter name =
   in
   List.rev (doit 0 [])
 
-let rec remove_dots parts outp =
-  match (parts, outp) with
-  | ".." :: r, _ :: rt -> remove_dots r rt
-  | ".." :: r, [] -> remove_dots r []
-  | "." :: r, rt -> remove_dots r rt
-  | r :: rs, rt -> remove_dots rs (r :: rt)
-  | [], rt -> List.rev rt
-
 let resolve_filename base key =
   let filename = Mirage_kv.Key.to_string key in
   let parts = split_string '/' filename in
-  let name = remove_dots parts [] |> String.concat "/" in
-  Filename.concat base name
+  let ret =
+    if List.exists (fun s -> s = "." || s = "..") parts then err_not_found key
+    else Ok (Filename.concat base filename)
+  in
+  Lwt.return ret
 
 let get_aux { base } ?offset ?length key =
-  let path = resolve_filename base key in
+  let*? path = resolve_filename base key in
   let size stat =
     match length with
     | Some n -> Lwt.return n
@@ -128,7 +122,7 @@ let get_aux { base } ?offset ?length key =
       | Internal_error e -> Lwt.return (Error e)
       | Unix.Unix_error (ENOENT, _, _) -> Lwt.return (err_not_found key)
       | Unix.Unix_error (e, _, _) -> Lwt.return (err_unix key e)
-      | e -> Lwt.fail e)
+      | e -> Lwt.reraise e)
 
 let get_partial t key ~offset ~length = get_aux t key ~offset ~length
 let get t key = get_aux t key
@@ -136,7 +130,7 @@ let disconnect _ = Lwt.return ()
 
 (* all mkdirs are mkdir -p *)
 let rec create_directory t key =
-  let path = resolve_filename t.base key in
+  let*? path = resolve_filename t.base key in
   let check_type path =
     let+ stat = Lwt_unix.LargeFile.stat path in
     match stat.Lwt_unix.LargeFile.st_kind with
@@ -152,11 +146,10 @@ let rec create_directory t key =
         Ok ())
       (function
         | Unix.Unix_error (e, _, _) -> Lwt.return (err_unix key e)
-        | e -> Lwt.fail e)
+        | e -> Lwt.reraise e)
 
 let open_file t key flags =
-  let path = resolve_filename t.base key in
-  (* create_directory (Filename.dirname path) *)
+  let*? path = resolve_filename t.base key in
   let*? () = create_directory t (Mirage_kv.Key.parent key) in
   Lwt.catch
     (fun () ->
@@ -165,10 +158,10 @@ let open_file t key flags =
     (function
       | Unix.Unix_error (ENOSPC, _, _) -> Lwt.return err_no_space
       | Unix.Unix_error (e, _, _) -> Lwt.return (err_unix key e)
-      | e -> Lwt.fail e)
+      | e -> Lwt.reraise e)
 
 let file_or_directory { base } key =
-  let path = resolve_filename base key in
+  let*? path = resolve_filename base key in
   let+ stat = Lwt_unix.LargeFile.stat path in
   match stat.Lwt_unix.LargeFile.st_kind with
   | Lwt_unix.S_DIR -> Ok `Dictionary
@@ -184,10 +177,10 @@ let exists t key =
     (function
       | Unix.Unix_error (ENOENT, _, _) -> Lwt.return (Ok None)
       | Unix.Unix_error (e, _, _) -> Lwt.return (err_unix key e)
-      | e -> Lwt.fail e)
+      | e -> Lwt.reraise e)
 
 let last_modified { base } key =
-  let path = resolve_filename base key in
+  let*? path = resolve_filename base key in
   Lwt.catch
     (fun () ->
       let+ stat = Lwt_unix.LargeFile.stat path in
@@ -197,10 +190,10 @@ let last_modified { base } key =
       | Some ts -> Ok ts)
     (function
       | Unix.Unix_error (e, _, _) -> Lwt.return (err_unix key e)
-      | e -> Lwt.fail e)
+      | e -> Lwt.reraise e)
 
 let size { base } key =
-  let path = resolve_filename base key in
+  let*? path = resolve_filename base key in
   Lwt.catch
     (fun () ->
       let+ stat = Lwt_unix.LargeFile.stat path in
@@ -212,16 +205,16 @@ let size { base } key =
     (function
       | Unix.Unix_error (ENOENT, _, _) -> Lwt.return (err_not_found key)
       | Unix.Unix_error (e, _, _) -> Lwt.return (err_unix key e)
-      | e -> Lwt.fail e)
+      | e -> Lwt.reraise e)
 
 let connect id =
   try
     if Sys.is_directory id then Lwt.return { base = id }
-    else Lwt.fail_with ("Not a directory " ^ id)
-  with Sys_error _ -> Lwt.fail_with ("Not an entity " ^ id)
+    else failwith ("Not a directory " ^ id)
+  with Sys_error _ -> failwith ("Not an entity " ^ id)
 
 let list t key =
-  let path = resolve_filename t.base key in
+  let*? path = resolve_filename t.base key in
   Lwt.catch
     (fun () ->
       let s = Lwt_unix.files_of_directory path in
@@ -238,37 +231,23 @@ let list t key =
       | Unix.Unix_error (ENOENT, _, _) -> Lwt.return (err_not_found key)
       | Unix.Unix_error (ENOTDIR, _, _) -> Lwt.return (err_dict_expected key)
       | Unix.Unix_error (e, _, _) -> Lwt.return (err_unix key e)
-      | e -> Lwt.fail e)
+      | e -> Lwt.reraise e)
 
 let digest t key =
-  let path = resolve_filename t.base key in
+  let*? path = resolve_filename t.base key in
   Lwt.catch
     (fun () ->
       let*? v = file_or_directory t key in
       match v with
       | `Value -> Lwt.return (Ok (Digest.file path))
-      | `Dictionary ->
-          let open Lwt_result.Syntax in
-          let+ entries = list t key in
-          let kind_to_str = function
-            | `Value -> "value"
-            | `Dictionary -> "dictionary"
-          in
-          let string_entries =
-            List.map
-              (fun (name, kind) ->
-                Mirage_kv.Key.to_string name ^ kind_to_str kind)
-              entries
-          in
-          let entries = String.concat "\n" string_entries in
-          Digest.string entries)
+      | `Dictionary -> Lwt.return (err_value_expected key))
     (function
       | Unix.Unix_error (ENOENT, _, _) -> Lwt.return (err_not_found key)
       | Unix.Unix_error (e, _, _) -> Lwt.return (err_unix key e)
-      | e -> Lwt.fail e)
+      | e -> Lwt.reraise e)
 
 let rec remove t key =
-  let path = resolve_filename t.base key in
+  let*? path = resolve_filename t.base key in
   Lwt.catch
     (fun () ->
       let*? file = file_or_directory t key in
@@ -292,7 +271,7 @@ let rec remove t key =
           else Lwt.return (Ok ()))
     (function
       | Unix.Unix_error (ENOENT, _, _) -> Lwt.return (err_not_found key)
-      | e -> Lwt.fail e)
+      | e -> Lwt.reraise e)
 
 let set_aux t key ?offset value =
   let lseek fd =
@@ -306,37 +285,45 @@ let set_aux t key ?offset value =
   in
   let* exists = exists t key in
   match exists with
-  | Ok (Some `Dictionary) -> Lwt.return (err_key_exists key)
+  | Ok (Some `Dictionary) when offset <> None ->
+      (* We are in the [set_partial] case *)
+      Lwt.return (err_value_expected key)
   | _ -> (
       let* ret =
         match offset with
-        | None -> remove t key (* set always overwite the previous bindings. *)
+        | None ->
+            (* [set] always overwite the previous bindings, even if it
+               is a directory. *)
+            remove t key
         | Some _ -> Lwt.return (Ok ())
       in
       match ret with
       | (Error (`Dictionary_expected _) | Error (`Storage_error _)) as e ->
           Lwt.return e
       | Ok () | Error (`Not_found _) ->
-          let*? fd =
-            open_file t key Lwt_unix.[ O_WRONLY; O_NONBLOCK; O_CREAT ]
-          in
           Lwt.catch
             (fun () ->
-              let* () = lseek fd in
-              let buf = Bytes.unsafe_of_string value in
-              let rec write_once off len =
-                if len = 0 then Lwt_unix.close fd
-                else
-                  let* n_written = Lwt_unix.write fd buf off len in
-                  if n_written = len + off then Lwt_unix.close fd
-                  else write_once (off + n_written) (len - n_written)
+              let*? fd =
+                open_file t key Lwt_unix.[ O_WRONLY; O_NONBLOCK; O_CREAT ]
               in
-              let+ () = write_once 0 (String.length value) in
-              Ok ())
+              Lwt.finalize
+                (fun () ->
+                  let* () = lseek fd in
+                  let buf = Bytes.unsafe_of_string value in
+                  let rec write_once off len =
+                    if len = 0 then Lwt.return ()
+                    else
+                      let* n_written = Lwt_unix.write fd buf off len in
+                      if n_written = len + off then Lwt.return ()
+                      else write_once (off + n_written) (len - n_written)
+                  in
+                  let+ () = write_once 0 (String.length value) in
+                  Ok ())
+                (fun () -> Lwt_unix.close fd))
             (function
               | Unix.Unix_error (ENOSPC, _, _) -> Lwt.return err_no_space
               | Unix.Unix_error (e, _, _) -> Lwt.return (err_unix key e)
-              | e -> Lwt.fail e))
+              | e -> Lwt.reraise e))
 
 let set_partial t key ~offset value = set_aux t key ~offset value
 let set t key value = set_aux t key value
@@ -348,7 +335,7 @@ let allocate t key ?last_modified length =
     match last_modified with
     | None -> Lwt.return (Ok ())
     | Some ts ->
-        let path = resolve_filename t.base key in
+        let*? path = resolve_filename t.base key in
         let date = Ptime.to_float_s ts in
         let+ () = Lwt_unix.utimes path date date in
         Ok ()
@@ -357,12 +344,12 @@ let allocate t key ?last_modified length =
   set_last_modified ()
 
 let rename t ~source ~dest =
-  let source_path = resolve_filename t.base source in
-  let dest_path = resolve_filename t.base dest in
+  let*? source_path = resolve_filename t.base source in
+  let*? dest_path = resolve_filename t.base dest in
   Lwt.catch
     (fun () ->
       let+ () = Lwt_unix.rename source_path dest_path in
       Ok ())
     (function
       | Unix.Unix_error (e, _, _) -> Lwt.return (err_unix source e)
-      | e -> Lwt.fail e)
+      | e -> Lwt.reraise e)
