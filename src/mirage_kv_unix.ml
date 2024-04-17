@@ -107,15 +107,13 @@ let get_aux { base } ?offset ?length key =
       Lwt.finalize
         (fun () ->
           let* stat = Lwt_unix.LargeFile.fstat fd in
-          if stat.Lwt_unix.LargeFile.st_kind = Lwt_unix.S_REG then (
+          if stat.Lwt_unix.LargeFile.st_kind = Lwt_unix.S_REG then
             let* () = lseek fd in
             let* size = size stat in
             let buffer = Bytes.create size in
             let+ read_bytes = Lwt_unix.read fd buffer 0 size in
-            Fmt.epr "XXX ready_bytes=%d size=%d %S\n%!" read_bytes size
-              (Bytes.to_string buffer);
             if read_bytes = size then Ok (Bytes.unsafe_to_string buffer)
-            else err_read key size)
+            else err_read key size
           else Lwt.return (err_value_expected key))
         (fun () -> Lwt_unix.close fd))
     (function

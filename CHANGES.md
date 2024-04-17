@@ -1,11 +1,12 @@
 ## v3.0.1 (2024-04-17)
 
+* Remove extra debugging statement (#8, @samoht)
 * Adress reviews from @reynir (#7, @samoht and @reynir)
   - Fail when keys contain '.' and '..' to match other `mirage-kv-*`
     implementations
   - Use failwith instead of Lwt.failwith
-  - Use Lwt.reraise instead of Lwt.fail
-  - `digest` on directories now return an error
+  - Use Lwt.reraise instead of Lwt.fail (requires lwt>=5.7)
+  - `digest` on directories now return an error (requires mirage-kv>=6.1.1)
   - `set_partial` on directories return an error while `set` on directories work
     (and remove the directory)
   - fix fd leak in `set` and `set_partial`
