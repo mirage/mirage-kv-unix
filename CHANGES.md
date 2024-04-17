@@ -1,5 +1,6 @@
 ## v3.0.1 (2024-04-17)
 
+* Remove extra debugging statement (#8, @samoht)
 * Adress reviews from @reynir (#7, @samoht and @reynir)
   - Fail when keys contain '.' and '..' to match other `mirage-kv-*`
     implementations
